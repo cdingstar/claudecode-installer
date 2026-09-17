@@ -1,9 +1,6 @@
 # macOS
 .DS_Store
 
-# 打包产物
-Dist/
-
 # 历史归档与日志
 archive/
 logs/
