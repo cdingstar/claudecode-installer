@@ -1,4 +1,4 @@
-# ============================================================
+﻿# ============================================================
 # 模型配置界面 —— WinForms 弹窗（全中文）
 # 字段：供应商下拉（联动模型与获取 Key 提示）/ API Key / 模型 / 自定义端点
 # 按钮：测试连接（发 1 token 真实请求）/ 测试当前模型（#024，供应商选择框下方，直测已保存配置）/
@@ -763,8 +763,10 @@ function Test-ProviderConnection {
     param([string]$BaseUrl, [string]$ApiKey, [string]$Model)
 
     $url = $BaseUrl.TrimEnd('/') + '/v1/messages'
+    # [1m] 等后缀是 Claude Code 客户端的上下文标记，API 端点不识别，测试前需剥掉
+    $testModel = $Model -replace '\[1m\]$', ''
     $body = @{
-        model      = $Model
+        model      = $testModel
         max_tokens = 1
         messages   = @(@{ role = 'user'; content = 'hi' })
     } | ConvertTo-Json -Depth 5

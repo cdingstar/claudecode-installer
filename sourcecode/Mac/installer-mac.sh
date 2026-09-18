@@ -16,7 +16,7 @@ APP_ROOT="$(cd "$(dirname "$0")" && pwd)"
 # ---- 版本号（与 Windows 统一维护在 sourcecode/VERSION，每次修改发布小版本 +1）----
 # 打包时 build.sh 在包内写入完整格式 VERSION 文件（如 v1.12(20260917)，日期=打包日）。
 # 读取顺序：包内 VERSION → 源码目录上级 VERSION（仅数字，开发态）→ 内置兜底。
-VERSION="1.14"   # 纯数字版本（PATH 标记等内部用途，保持幂等），兜底值
+VERSION="1.15"   # 纯数字版本（PATH 标记等内部用途，保持幂等），兜底值
 _rawver=""
 [ -f "$APP_ROOT/VERSION" ] && _rawver=$(head -1 "$APP_ROOT/VERSION" | tr -d '[:space:]')
 [ -z "$_rawver" ] && [ -f "$APP_ROOT/../VERSION" ] && _rawver=$(head -1 "$APP_ROOT/../VERSION" | tr -d '[:space:]')
@@ -206,12 +206,14 @@ step4_claude() {
 }
 
 # API 连接测试（#017 双端一致）：test_connection <base> <key> <model> → 0=可用
+# 注意：[1m] 等后缀是 Claude Code 客户端的上下文标记，API 端点不识别，测试前需剥掉
 test_connection() {
   local code
+  local tmodel="${3%\[1m]}"
   code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 \
     -X POST "$1/v1/messages" -H "Content-Type: application/json" \
     -H "x-api-key: $2" -H "Authorization: Bearer $2" -H "anthropic-version: 2023-06-01" \
-    -d "{\"model\":\"$3\",\"max_tokens\":1,\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}]}" 2>/dev/null)
+    -d "{\"model\":\"$tmodel\",\"max_tokens\":1,\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}]}" 2>/dev/null)
   [ "$code" = "200" ]
 }
 
@@ -345,31 +347,38 @@ except Exception:
   local provider choice act idx
   while :; do
     # 返回格式：按钮代码|下拉选中序号（1000=继续 1001=测试当前模型 1002=恢复官方默认 1003=取消）
+    # 注意：正文不得出现撇号（AppleScript 的 xxx's 写法）——老版 bash 3.2 解析
+    # 「$() 内嵌 heredoc」时撇号会被误当引号导致整脚本语法错误，故全部改用 of/tell 语法
     choice=$(osascript 2>/dev/null <<'EOF'
 use AppleScript version "2.4"
 use framework "Foundation"
 use framework "AppKit"
 use scripting additions
 
-current application's NSApp's activateIgnoringOtherApps:true
-set theAlert to current application's NSAlert's alloc()'s init()
-theAlert's setMessageText:"Claude Code 模型配置"
-theAlert's setInformativeText:"请选择大模型供应商；可先点「测试当前模型」检查已保存配置是否可用"
-theAlert's addButtonWithTitle:"继续"
-theAlert's addButtonWithTitle:"测试当前模型"
-theAlert's addButtonWithTitle:"恢复官方默认"
-theAlert's addButtonWithTitle:"取消"
+activate
+set theAlert to init() of (alloc() of (NSAlert of current application))
+tell theAlert
+    its setMessageText:"Claude Code 模型配置"
+    its setInformativeText:"请选择大模型供应商；可先点「测试当前模型」检查已保存配置是否可用"
+    its addButtonWithTitle:"继续"
+    its addButtonWithTitle:"测试当前模型"
+    its addButtonWithTitle:"恢复官方默认"
+    its addButtonWithTitle:"取消"
+end tell
 -- Esc 键绑定到「取消」
-repeat with theBtn in ((theAlert's buttons()) as list)
-    if (theBtn's title() as text) is "取消" then theBtn's setKeyEquivalent:(character id 27)
+repeat with theBtn in ((buttons of theAlert) as list)
+    if ((title of theBtn) as text) is "取消" then tell theBtn to setKeyEquivalent:(character id 27)
 end repeat
-
-set thePopup to current application's NSPopUpButton's alloc()'s initWithFrame:(current application's NSMakeRect(0, 0, 340, 26)) pullsDown:false
-thePopup's addItemsWithTitles:{"DeepSeek", "GLM（智谱）", "自定义"}
-theAlert's setAccessoryView:thePopup
-
-set theResp to (theAlert's runModal()) as integer
-set theIdx to (thePopup's indexOfSelectedItem()) as integer
+set thePopup to init() of (alloc() of (NSPopUpButton of current application))
+tell thePopup
+    its setFrame:(NSMakeRect(0, 0, 340, 26) of current application)
+    its addItemsWithTitles:{"DeepSeek", "GLM（智谱）", "自定义"}
+end tell
+tell theAlert
+    its setAccessoryView:thePopup
+end tell
+set theResp to (runModal() of theAlert) as integer
+set theIdx to (indexOfSelectedItem() of thePopup) as integer
 return (theResp as text) & "|" & (theIdx as text)
 EOF
 )

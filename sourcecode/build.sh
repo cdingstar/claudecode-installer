@@ -12,7 +12,7 @@
 #       Dist/Mac/ClaudeCode安装器-Mac-v1.x(yyyymmdd).zip
 # 说明：用 Python zipfile 打包——自动置 EFS/UTF-8 标志位，Windows 解压
 #       中文文件名不乱码（见 docs/问题备案.md #007）；打包后自动校验：
-#       EFS 标志 / bat 为 CRLF / 逐文件 SHA256 与源一致。
+#       EFS 标志 / bat 为 CRLF+GBK / ps1 带 UTF-8 BOM / 逐文件 SHA256 与源一致。
 # ============================================================
 setopt KSH_ARRAYS
 set -e
@@ -80,6 +80,12 @@ with zipfile.ZipFile(zippath) as zf:
         data = zf.read(i)
         if i.filename.lower().endswith('.bat'):
             assert b'\r\n' in data, 'bat 非 CRLF: {0}'.format(i.filename)
+            # bat 中文提示必须存 GBK（cmd 按系统代码页解析），存成 UTF-8 会在中文 Windows 乱码
+            assert data.decode('gbk').encode('gbk') == data, \
+                'bat 非 GBK 兼容编码（疑似被存成 UTF-8）: {0}'.format(i.filename)
+        if i.filename.lower().endswith('.ps1'):
+            # PS 5.1 对无 BOM 文件按系统 ANSI(GBK) 解码，中文乱码甚至解析失败（#028）
+            assert data.startswith(b'\xef\xbb\xbf'), 'ps1 缺 UTF-8 BOM: {0}'.format(i.filename)
         src = os.path.join(stage, os.path.relpath(i.filename, top))
         assert hashlib.sha256(data).hexdigest() == \
                hashlib.sha256(open(src, 'rb').read()).hexdigest(), \

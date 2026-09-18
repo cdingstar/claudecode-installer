@@ -1,4 +1,4 @@
-# ============================================================
+﻿# ============================================================
 # Claude Code 一键安装器 —— 主流程编排
 # 阶段：自举 → 模块加载（带保护）→ 启动自检 → 预检 →
 #      Node → Git → Python → Claude Code → 配置弹窗 → 自检报告
@@ -29,7 +29,7 @@ $Script:AppRoot = Split-Path -Parent $PSScriptRoot   # 安装器根目录（bat 
 # 版本规则：每次修改发布，小版本 +1（如 1.11 → 1.12），统一维护在 sourcecode/VERSION；
 # 打包时 build.sh 生成包内 VERSION 文件（完整格式 v1.12(20260917)，日期=打包日）。
 # 读取顺序：包内 VERSION → 源码目录上级 VERSION（仅数字，开发态）→ 内置兜底。
-$Script:InstallerVersion = '1.14'   # 纯数字版本（PATH 标记等内部用途），兜底值
+$Script:InstallerVersion = '1.15'   # 纯数字版本（PATH 标记等内部用途），兜底值
 $Script:InstallerVersionFull = $null
 $_verFile = Join-Path $Script:AppRoot 'VERSION'
 if (-not (Test-Path -LiteralPath $_verFile)) { $_verFile = Join-Path $Script:AppRoot '..\VERSION' }
